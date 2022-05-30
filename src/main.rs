@@ -1,7 +1,9 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 use bip39::{Language::English, Mnemonic};
 use clap::{Args, Parser, Subcommand};
 use rand::{rngs::OsRng, Fill};
 use smallvec::{smallvec, SmallVec};
+
 use std::{
     fs::{File, OpenOptions},
     io::{stdout, BufRead, BufReader, BufWriter, Write},
@@ -68,7 +70,7 @@ fn main() {
 fn gen(Gen { lines, dest }: Gen) {
     let new_files = create_files(&dest);
     if new_files.is_empty() {
-        gen_inner(stdout().lock(), lines)
+        gen_inner(stdout().lock(), lines);
     }
     for file in new_files {
         gen_inner(BufWriter::new(file), lines);
@@ -122,7 +124,7 @@ fn open_files(paths: &[PathBuf]) -> SmallVec<[BufReader<File>; 4]> {
     for path in paths {
         files.push(BufReader::new(
             opts.open(path).expect("couldn't open for reading"),
-        ))
+        ));
     }
     files
 }
@@ -157,7 +159,7 @@ fn split(Split { source, dest }: Split) {
         for (buf, file) in zip(&mut bufs, &mut *rest) {
             buf.try_fill(rng).unwrap();
             for (s, b) in zip(&mut *src, &*buf) {
-                *s ^= b
+                *s ^= b;
             }
             writeln!(file, "{}", Mnemonic::from_entropy(buf).unwrap()).unwrap();
         }
@@ -186,14 +188,12 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
             let len = file.read_line(str).expect("couldn't read");
             if len == 0 {
                 if f == 0 {
-                    finishing = true
-                } else if !finishing {
-                    panic!("file {f} suddenly ended")
+                    finishing = true;
                 }
+                assert!(finishing, "file {f} suddenly ended");
                 continue;
-            } else if finishing {
-                panic!("file {f} continues longer than previous file")
             }
+            assert!(!finishing, "file {f} continues longer than previous file");
             let m = match Mnemonic::parse_in_normalized(English, str) {
                 Ok(m) => m,
                 Err(e) => panic!("error on line {i} in file {f}: {e}"),
@@ -203,7 +203,7 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
             assert_eq!(len, 32);
             let m: &[u8; 32] = (&m[..32]).try_into().unwrap();
             for (s, b) in zip(&mut *buf, m) {
-                *s ^= b
+                *s ^= b;
             }
             f += 1;
         }
@@ -231,14 +231,13 @@ fn check(Check { source }: Check) {
             let len = file.read_line(str).expect("couldn't read");
             if len == 0 {
                 if f == 0 {
-                    finishing = true
-                } else if !finishing {
-                    panic!("file {f} suddenly ended")
+                    finishing = true;
                 }
+                assert!(finishing, "file {f} suddenly ended");
                 continue;
-            } else if finishing {
-                panic!("file {f} continues longer than previous file")
             }
+            assert!(!finishing, "file {f} continues longer than previous file");
+
             let m = match Mnemonic::parse_in_normalized(English, str) {
                 Ok(m) => m,
                 Err(e) => panic!("error on line {i} in file {f}: {e}"),
@@ -247,9 +246,9 @@ fn check(Check { source }: Check) {
             let (m, len) = m.to_entropy_array();
             assert_eq!(len, 32);
             let m: &[u8; 32] = (&m[..32]).try_into().unwrap();
-            for (s, b) in zip(&mut *buf, m) {
-                *s ^= b
-            }
+            zip(&mut *buf, m).for_each(|(s, b)| {
+                *s ^= b;
+            });
             f += 1;
         }
         if buf.iter().any(|&x| x != 0) {
@@ -261,5 +260,5 @@ fn check(Check { source }: Check) {
         }
         i += 1;
     }
-    eprintln!("everything is awesome")
+    eprintln!("everything is awesome");
 }
