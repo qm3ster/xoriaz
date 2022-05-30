@@ -16,8 +16,13 @@ struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Generate new random files
     Gen(Gen),
+    /// Split source file into provided number of output files
     Split(Split),
+    /// XOR source files together
+    ///
+    /// use `-o`/`--out` to specify an output file
     Xor(Xor),
 }
 #[derive(Debug, Args)]
