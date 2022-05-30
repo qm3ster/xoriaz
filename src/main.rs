@@ -202,9 +202,7 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
             let (m, len) = m.to_entropy_array();
             assert_eq!(len, 32);
             let m: &[u8; 32] = (&m[..32]).try_into().unwrap();
-            for (s, b) in zip(&mut *buf, m) {
-                *s ^= b;
-            }
+            zip(&mut *buf, m).for_each(|(s, b)| *s ^= b);
             f += 1;
         }
         if finishing {
@@ -246,9 +244,7 @@ fn check(Check { source }: Check) {
             let (m, len) = m.to_entropy_array();
             assert_eq!(len, 32);
             let m: &[u8; 32] = (&m[..32]).try_into().unwrap();
-            zip(&mut *buf, m).for_each(|(s, b)| {
-                *s ^= b;
-            });
+            zip(&mut *buf, m).for_each(|(s, b)| *s ^= b);
             f += 1;
         }
         if buf.iter().any(|&x| x != 0) {
