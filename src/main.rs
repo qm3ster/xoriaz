@@ -24,6 +24,10 @@ enum Command {
     ///
     /// use `-o`/`--out` to specify an output file
     Xor(Xor),
+    /// Check that a set of file includes the original and all splits
+    ///
+    /// This means their XOR sum is all zeros
+    Check(Check),
 }
 #[derive(Debug, Args)]
 struct Gen {
@@ -46,12 +50,18 @@ struct Xor {
     #[clap(short = 'o', long = "out", parse(from_os_str))]
     dest: Option<PathBuf>,
 }
+#[derive(Debug, Args)]
+struct Check {
+    #[clap(required = true, min_values = 3, parse(from_os_str))]
+    source: Vec<PathBuf>,
+}
 
 fn main() {
     match Cli::parse().command {
         Command::Gen(args) => gen(args),
         Command::Split(args) => split(args),
         Command::Xor(args) => xor(args),
+        Command::Check(args) => check(args),
     }
 }
 
@@ -204,4 +214,52 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
         *buf = [0; 32];
         i += 1;
     }
+}
+
+fn check(Check { source }: Check) {
+    let mut inputs = open_files(&source);
+
+    let inputs: &mut [BufReader<File>] = &mut inputs;
+    let buf = &mut [0u8; 32];
+    let str = &mut String::new();
+    let mut i = 0;
+    let mut f;
+    let mut finishing = false;
+    loop {
+        f = 0;
+        for file in &mut *inputs {
+            let len = file.read_line(str).expect("couldn't read");
+            if len == 0 {
+                if f == 0 {
+                    finishing = true
+                } else if !finishing {
+                    panic!("file {f} suddenly ended")
+                }
+                continue;
+            } else if finishing {
+                panic!("file {f} continues longer than previous file")
+            }
+            let m = match Mnemonic::parse_in_normalized(English, str) {
+                Ok(m) => m,
+                Err(e) => panic!("error on line {i} in file {f}: {e}"),
+            };
+            str.clear();
+            let (m, len) = m.to_entropy_array();
+            assert_eq!(len, 32);
+            let m: &[u8; 32] = (&m[..32]).try_into().unwrap();
+            for (s, b) in zip(&mut *buf, m) {
+                *s ^= b
+            }
+            f += 1;
+        }
+        if buf.iter().any(|&x| x != 0) {
+            eprintln!("difference on line {i}");
+            std::process::exit(1);
+        }
+        if finishing {
+            break;
+        }
+        i += 1;
+    }
+    eprintln!("everything is awesome")
 }
