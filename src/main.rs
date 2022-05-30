@@ -170,7 +170,7 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
     let mut i = 0;
     let mut f;
     let mut finishing = false;
-    while !finishing {
+    loop {
         f = 0;
         for file in &mut *inputs {
             let len = file.read_line(str).expect("couldn't read");
@@ -196,6 +196,9 @@ fn xor_inner(mut w: impl Write, inputs: &mut [BufReader<File>]) {
                 *s ^= b
             }
             f += 1;
+        }
+        if finishing {
+            break;
         }
         writeln!(w, "{}", Mnemonic::from_entropy(buf).unwrap()).unwrap();
         *buf = [0; 32];
